@@ -30,14 +30,19 @@
   ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
   POSSIBILITY OF SUCH DAMAGE.
  */
-#include <stdint.h>
-#include <stddef.h>
+#define PY_SSIZE_T_CLEAN
 
-/* Bob Jenkin's one-at-a-time hash, adapted from his public domain
-   code published at http://www.burtleburtle.net/bob/hash/doobs.html */
-uint32_t oneatatime(unsigned char *key, size_t key_len) {
+#include <Python.h>
+#include <stdint.h>
+
+static PyObject* oneatatime(PyObject* self, PyObject* args) {
+  const char *key = NULL;
+  Py_ssize_t key_len, i;
   uint32_t hash = 0;
-  size_t i;
+
+  // Extract the python string or unicode argument
+  if (!PyArg_ParseTuple(args, "es#", "UTF-16", &key, &key_len))
+    return NULL;
 
   for (i = 0; i < key_len; ++i) {
     hash += key[i];
@@ -49,5 +54,17 @@ uint32_t oneatatime(unsigned char *key, size_t key_len) {
   hash ^= (hash >> 11);
   hash += (hash << 15);
 
-  return hash;
+  PyMem_Free((void *) key);
+  return Py_BuildValue("I", hash);
+}
+
+static char oneatatime_doc[] = "Bob Jenkins's One-at-a-time non-cryptographic hash function. Takes a unicode and returns an unsigned 32-bit integer.";
+
+static PyMethodDef jenkins_funcs[] = {
+  {"oneatatime", (PyCFunction) oneatatime, METH_VARARGS, oneatatime_doc},
+  {NULL, NULL, 0, NULL}
+};
+
+PyMODINIT_FUNC initjenkins(void) {
+  (void) Py_InitModule3("jenkins", jenkins_funcs, "Bob Jenkins's hash functions published at http://www.burtleburtle.net/bob/hash/doobs.html.");
 }
