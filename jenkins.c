@@ -40,8 +40,8 @@ static PyObject* oneatatime(PyObject* self, PyObject* args) {
   Py_ssize_t key_len, i;
   uint32_t hash = 0;
 
-  // Extract the python string or unicode argument
-  if (!PyArg_ParseTuple(args, "es#", "UTF-16", &key, &key_len))
+  // Extract the python unicode argument
+  if (!PyArg_ParseTuple(args, "es#", "UTF-8", &key, &key_len))
     return NULL;
 
   for (i = 0; i < key_len; ++i) {
@@ -65,6 +65,22 @@ static PyMethodDef jenkins_funcs[] = {
   {NULL, NULL, 0, NULL}
 };
 
-PyMODINIT_FUNC initjenkins(void) {
-  (void) Py_InitModule3("jenkins", jenkins_funcs, "Bob Jenkins's hash functions published at http://www.burtleburtle.net/bob/hash/doobs.html.");
+static const char jenkins_doc[] = "Bob Jenkins's hash functions published at http://www.burtleburtle.net/bob/hash/doobs.html.";
+
+#if PY_MAJOR_VERSION >= 3
+static struct PyModuleDef jenkins = {
+  PyModuleDef_HEAD_INIT,
+  "jenkins",
+  jenkins_doc,
+  -1,
+  jenkins_funcs
+};
+
+PyMODINIT_FUNC PyInit_jenkins(void) {
+  return PyModule_Create(&jenkins);
 }
+#else
+PyMODINIT_FUNC initjenkins(void) {
+  (void) Py_InitModule3("jenkins", jenkins_funcs, jenkins_doc);
+}
+#endif
