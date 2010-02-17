@@ -203,7 +203,7 @@ static PyObject* hashword2_py(PyObject* self, PyObject* args) {
   hashword2(key, (size_t) key_len, &pc, &pb);
 
   free(key);
-  return Py_BuildValue("(II)", pc, pb);
+  return Py_BuildValue("II", pc, pb);
 }
 
 static PyObject* hashlittle_py(PyObject* self, PyObject* args) {
@@ -219,17 +219,43 @@ static PyObject* hashbig_py(PyObject* self, PyObject* args) {
 }
 
 static PyObject* mix_py(PyObject* self, PyObject* args) {
-  return NULL;
+  unsigned long inita, initb, initc;
+  uint32_t a, b, c;
+
+  if (!PyArg_ParseTuple(args, "kkk", &inita, &initb, &initc))
+    return NULL;
+
+  a = (uint32_t) inita;
+  b = (uint32_t) initb;
+  c = (uint32_t) initc;
+
+  mix(a, b, c); /* This is a macro */
+
+  return Py_BuildValue("III", a, b, c);
 }
 
 static PyObject* final_py(PyObject* self, PyObject* args) {
-  return NULL;
+  unsigned long inita, initb, initc;
+  uint32_t a, b, c;
+
+  if (!PyArg_ParseTuple(args, "kkk", &inita, &initb, &initc))
+    return NULL;
+
+  a = (uint32_t) inita;
+  b = (uint32_t) initb;
+  c = (uint32_t) initc;
+
+  final(a, b, c); /* This is a macro */
+
+  return Py_BuildValue("III", a, b, c);
 }
 
 static PyMethodDef jenkins_funcs[] = {
   {"oneatatime", (PyCFunction) oneatatime_py, METH_VARARGS, oneatatime_doc},
   {"hashword",   (PyCFunction) hashword_py,   METH_VARARGS, hashword_doc},
   {"hashword2",  (PyCFunction) hashword2_py,  METH_VARARGS, hashword2_doc},
+  {"mix",        (PyCFunction) mix_py,        METH_VARARGS, NULL},
+  {"final",      (PyCFunction) final_py,      METH_VARARGS, NULL},
   {NULL, NULL, 0, NULL}
 };
 
