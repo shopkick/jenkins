@@ -54,6 +54,8 @@ static uint32_t one_at_a_time(const char *key, Py_ssize_t key_len) {
   return hash;
 }
 
+static char oneatatime_doc[] = "Bob Jenkins's One-at-a-time non-cryptographic hash function. Takes a unicode and returns an unsigned 32-bit integer.";
+
 static PyObject* oneatatime_py(PyObject* self, PyObject* args) {
   const char *key = NULL;
   Py_ssize_t key_len;
@@ -69,9 +71,7 @@ static PyObject* oneatatime_py(PyObject* self, PyObject* args) {
   return Py_BuildValue("I", hash);
 }
 
-static char oneatatime_doc[] = "Bob Jenkins's One-at-a-time non-cryptographic hash function. Takes a unicode and returns an unsigned 32-bit integer.";
-
-static char hashword_doc[] = "hashword(sequence, unsigned number):\nThis works on all machines.  To be useful, it requires\nthat the key be an array (python sequence) of uint32_t's\nThe function hashword() is identical to hashlittle() on little-endian\nmachines, and identical to hashbig() on big-endian machines,\nexcept that the length has to be measured in uint32_ts rather than in\nbytes.  hashlittle() is more complicated than hashword() only because\nhashlittle() has to dance around fitting the key bytes into registers.";
+static char hashword_doc[] = "Takes a sequence of 32 bit integers and an optional unsigned 32 bit integer initial value. Returns the unsigned 32 bit integer hash of the sequence. This function is identical to hashlittle on little-endian machines and to hashbig on big-endian machines.";
 
 static PyObject* hashword_py(PyObject* self, PyObject* args) {
   uint32_t hash;
@@ -137,7 +137,7 @@ static PyObject* hashword_py(PyObject* self, PyObject* args) {
   return Py_BuildValue("I", hash);
 }
 
-static char hashword2_doc[] = "hashword2() -- same as hashword(), but take two seeds and return two\n32-bit values.  pc and pb must both be nonnull, and *pc and *pb must\nboth be initialized with seeds.  If you pass in (*pb)==0, the output\n(*pc) will be the same as the return value from hashword().";
+static char hashword2_doc[] = "Takes a sequence of 32 bit integers and two optional unsigned 32 bit integer initial values. Returns two unsigned 32 bit integer hash values of the sequence. The first return value is mixed more and should be used where possible.";
 
 static PyObject* hashword2_py(PyObject* self, PyObject* args) {
   uint32_t *key; /* C representation of the input sequence */
@@ -206,17 +206,63 @@ static PyObject* hashword2_py(PyObject* self, PyObject* args) {
   return Py_BuildValue("II", pc, pb);
 }
 
+static char hashlittle_doc[] = "Takes a (read-only) buffer and optional unsigned 32 bit integer initial value. Returns the unsigned 32 bit integer hash of the buffer. This function is faster than hashbig on little-endian machines. This function is different from hashbig on all machines.";
+
 static PyObject* hashlittle_py(PyObject* self, PyObject* args) {
-  return NULL;
+  const char *key;
+  Py_ssize_t key_len;
+  unsigned long init = 0;
+  uint32_t initval, hash;
+
+  if (!PyArg_ParseTuple(args, "t#|k", &key, &key_len, &init))
+    return NULL;
+
+  initval = (uint32_t) init;
+
+  hash = hashlittle(key, key_len, initval);
+
+  return Py_BuildValue("I", hash);
 }
+
+static char hashlittle2_doc[] = "Takes a (read-only) buffer and two optional initial values. Returns two unsigned 32 bit integer hashes of the buffer. The first return value is mixed more and should be used first where possible.";
 
 static PyObject* hashlittle2_py(PyObject* self, PyObject* args) {
-  return NULL;
+  const char *key;
+  Py_ssize_t key_len;
+  unsigned long initc = 0;
+  unsigned long initb = 0;
+  uint32_t pc, pb;
+
+  if (!PyArg_ParseTuple(args, "t#|kk", &key, &key_len, &initc, &initb))
+    return NULL;
+
+  pc = (uint32_t) initc;
+  pb = (uint32_t) initb;
+
+  hashlittle2(key, key_len, &pc, &pb);
+
+  return Py_BuildValue("II", pc, pb);
 }
 
+static char hashbig_doc[] = "Takes a (read-only) buffer and optional unsigned 32 bit integer initial value. Returns the unsigned 32 bit integer hash of the buffer. This function is faster than hashlittle on big-endian machines. This function is different from hashlittle on all machines.";
+
 static PyObject* hashbig_py(PyObject* self, PyObject* args) {
-  return NULL;
+  const char *key;
+  Py_ssize_t key_len;
+  unsigned long init = 0;
+  uint32_t initval, hash;
+
+  if (!PyArg_ParseTuple(args, "t#|k", &key, &key_len, &init))
+    return NULL;
+
+  initval = (uint32_t) init;
+
+  hash = hashbig(key, key_len, initval);
+
+  return Py_BuildValue("I", hash);
 }
+
+static char mix_doc[] = "Takes three unsigned 32 bit integers. Returns three unsigned 32 bit integers.";
 
 static PyObject* mix_py(PyObject* self, PyObject* args) {
   unsigned long inita, initb, initc;
@@ -233,6 +279,8 @@ static PyObject* mix_py(PyObject* self, PyObject* args) {
 
   return Py_BuildValue("III", a, b, c);
 }
+
+static char final_doc[] = "Takes three unsigned 32 bit integers. Returns three unsigned 32 bit integers.";
 
 static PyObject* final_py(PyObject* self, PyObject* args) {
   unsigned long inita, initb, initc;
@@ -254,8 +302,11 @@ static PyMethodDef jenkins_funcs[] = {
   {"oneatatime", (PyCFunction) oneatatime_py, METH_VARARGS, oneatatime_doc},
   {"hashword",   (PyCFunction) hashword_py,   METH_VARARGS, hashword_doc},
   {"hashword2",  (PyCFunction) hashword2_py,  METH_VARARGS, hashword2_doc},
-  {"mix",        (PyCFunction) mix_py,        METH_VARARGS, NULL},
-  {"final",      (PyCFunction) final_py,      METH_VARARGS, NULL},
+  {"hashlittle", (PyCFunction) hashlittle_py, METH_VARARGS, hashlittle_doc},
+  {"hashlittle2",(PyCFunction) hashlittle2_py,METH_VARARGS, hashlittle2_doc},
+  {"hashbig",    (PyCFunction) hashbig_py,    METH_VARARGS, hashbig_doc},
+  {"mix",        (PyCFunction) mix_py,        METH_VARARGS, mix_doc},
+  {"final",      (PyCFunction) final_py,      METH_VARARGS, final_doc},
   {NULL, NULL, 0, NULL}
 };
 
