@@ -137,8 +137,73 @@ static PyObject* hashword_py(PyObject* self, PyObject* args) {
   return Py_BuildValue("I", hash);
 }
 
+static char hashword2_doc[] = "hashword2() -- same as hashword(), but take two seeds and return two\n32-bit values.  pc and pb must both be nonnull, and *pc and *pb must\nboth be initialized with seeds.  If you pass in (*pb)==0, the output\n(*pc) will be the same as the return value from hashword().";
+
 static PyObject* hashword2_py(PyObject* self, PyObject* args) {
-  return NULL;
+  uint32_t *key; /* C representation of the input sequence */
+  Py_ssize_t key_len, i;
+  unsigned long initpc = 0;
+  unsigned long initpb = 0;
+  uint32_t pc, pb;
+  PyObject *obj, *seq; /* The sequence object */
+  PyObject *tmp, *lng; /* The current item in the sequence */
+
+  /* Get arguments and make sure they're the correct type */
+  if (!PyArg_ParseTuple(args, "O|kk", &obj, &initpc, &initpb))
+    return NULL;
+
+  seq = PySequence_Fast(obj, "first parameter must be a sequence");
+  if (!seq)
+    return NULL;
+
+  /* Convert the sequence to a C array */
+  key_len = PySequence_Fast_GET_SIZE(seq);
+  if (key_len == -1) {
+    Py_DECREF(seq);
+    return NULL;
+  }
+
+  if (key_len == 0) {
+    PyErr_SetString(PyExc_ValueError, "Provided sequence must not be empty");
+    Py_DECREF(seq);
+    return NULL;
+  }
+
+  key = malloc(sizeof(uint32_t)*key_len);
+  if (!key) {
+    Py_DECREF(seq);
+    return PyErr_NoMemory();
+  }
+
+  for (i = 0; i < key_len; ++i) {
+    tmp = PySequence_Fast_GET_ITEM(seq, i);
+    if (!tmp) {
+      free(key);
+      Py_DECREF(seq);
+      return NULL;
+    }
+
+    lng = PyNumber_Long(tmp);
+    if (!lng) {
+      free(key);
+      Py_DECREF(seq);
+      return NULL;
+    }
+
+    key[i] = (uint32_t) PyLong_AsUnsignedLong(lng);
+
+    Py_DECREF(lng);
+  }
+
+  Py_DECREF(seq);
+
+  /* Actually hash */
+  pc = (uint32_t) initpc;
+  pb = (uint32_t) initpb;
+  hashword2(key, (size_t) key_len, &pc, &pb);
+
+  free(key);
+  return Py_BuildValue("(II)", pc, pb);
 }
 
 static PyObject* hashlittle_py(PyObject* self, PyObject* args) {
@@ -164,6 +229,7 @@ static PyObject* final_py(PyObject* self, PyObject* args) {
 static PyMethodDef jenkins_funcs[] = {
   {"oneatatime", (PyCFunction) oneatatime_py, METH_VARARGS, oneatatime_doc},
   {"hashword",   (PyCFunction) hashword_py,   METH_VARARGS, hashword_doc},
+  {"hashword2",  (PyCFunction) hashword2_py,  METH_VARARGS, hashword2_doc},
   {NULL, NULL, 0, NULL}
 };
 
