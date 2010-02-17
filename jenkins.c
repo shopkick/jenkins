@@ -35,14 +35,11 @@
 #include <Python.h>
 #include <stdint.h>
 
-static PyObject* oneatatime(PyObject* self, PyObject* args) {
-  const char *key = NULL;
-  Py_ssize_t key_len, i;
-  uint32_t hash = 0;
+#include "lookup3.c"
 
-  // Extract the python unicode argument
-  if (!PyArg_ParseTuple(args, "es#", "UTF-8", &key, &key_len))
-    return NULL;
+static uint32_t one_at_a_time(const char *key, Py_ssize_t key_len) {
+  Py_ssize_t i;
+  uint32_t hash = 0;
 
   for (i = 0; i < key_len; ++i) {
     hash += key[i];
@@ -54,14 +51,119 @@ static PyObject* oneatatime(PyObject* self, PyObject* args) {
   hash ^= (hash >> 11);
   hash += (hash << 15);
 
+  return hash;
+}
+
+static PyObject* oneatatime_py(PyObject* self, PyObject* args) {
+  const char *key = NULL;
+  Py_ssize_t key_len;
+  uint32_t hash;
+
+  // Extract the python unicode argument
+  if (!PyArg_ParseTuple(args, "es#", "UTF-8", &key, &key_len))
+    return NULL;
+
+  hash = one_at_a_time(key, key_len);
+
   PyMem_Free((void *) key);
   return Py_BuildValue("I", hash);
 }
 
 static char oneatatime_doc[] = "Bob Jenkins's One-at-a-time non-cryptographic hash function. Takes a unicode and returns an unsigned 32-bit integer.";
 
+static char hashword_doc[] = "hashword(sequence, unsigned number):\nThis works on all machines.  To be useful, it requires\nthat the key be an array (python sequence) of uint32_t's\nThe function hashword() is identical to hashlittle() on little-endian\nmachines, and identical to hashbig() on big-endian machines,\nexcept that the length has to be measured in uint32_ts rather than in\nbytes.  hashlittle() is more complicated than hashword() only because\nhashlittle() has to dance around fitting the key bytes into registers.";
+
+static PyObject* hashword_py(PyObject* self, PyObject* args) {
+  uint32_t hash;
+  uint32_t *key; /* C representation of the input sequence */
+  Py_ssize_t key_len, i;
+  unsigned long initval = 0;
+  PyObject *obj, *seq; /* The sequence object */
+  PyObject *tmp, *lng; /* The current item in the sequence */
+
+  /* Get arguments and make sure they're the correct type */
+  if (!PyArg_ParseTuple(args, "O|k", &obj, &initval))
+    return NULL;
+
+  seq = PySequence_Fast(obj, "first parameter must be a sequence");
+  if (!seq)
+    return NULL;
+
+  /* Convert the sequence to a C array */
+  key_len = PySequence_Fast_GET_SIZE(seq);
+  if (key_len == -1) {
+    Py_DECREF(seq);
+    return NULL;
+  }
+
+  if (key_len == 0) {
+    PyErr_SetString(PyExc_ValueError, "Provided sequence must not be empty");
+    Py_DECREF(seq);
+    return NULL;
+  }
+
+  key = malloc(sizeof(uint32_t)*key_len);
+  if (!key) {
+    Py_DECREF(seq);
+    return PyErr_NoMemory();
+  }
+
+  for (i = 0; i < key_len; ++i) {
+    tmp = PySequence_Fast_GET_ITEM(seq, i);
+    if (!tmp) {
+      free(key);
+      Py_DECREF(seq);
+      return NULL;
+    }
+
+    lng = PyNumber_Long(tmp);
+    if (!lng) {
+      free(key);
+      Py_DECREF(seq);
+      return NULL;
+    }
+
+    key[i] = (uint32_t) PyLong_AsUnsignedLong(lng);
+
+    Py_DECREF(lng);
+  }
+
+  Py_DECREF(seq);
+
+  /* Actually hash */
+  hash = hashword(key, (size_t) key_len, (uint32_t) initval);
+
+  free(key);
+  return Py_BuildValue("I", hash);
+}
+
+static PyObject* hashword2_py(PyObject* self, PyObject* args) {
+  return NULL;
+}
+
+static PyObject* hashlittle_py(PyObject* self, PyObject* args) {
+  return NULL;
+}
+
+static PyObject* hashlittle2_py(PyObject* self, PyObject* args) {
+  return NULL;
+}
+
+static PyObject* hashbig_py(PyObject* self, PyObject* args) {
+  return NULL;
+}
+
+static PyObject* mix_py(PyObject* self, PyObject* args) {
+  return NULL;
+}
+
+static PyObject* final_py(PyObject* self, PyObject* args) {
+  return NULL;
+}
+
 static PyMethodDef jenkins_funcs[] = {
-  {"oneatatime", (PyCFunction) oneatatime, METH_VARARGS, oneatatime_doc},
+  {"oneatatime", (PyCFunction) oneatatime_py, METH_VARARGS, oneatatime_doc},
+  {"hashword",   (PyCFunction) hashword_py,   METH_VARARGS, hashword_doc},
   {NULL, NULL, 0, NULL}
 };
 
