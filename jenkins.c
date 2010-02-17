@@ -54,20 +54,18 @@ static uint32_t one_at_a_time(const char *key, Py_ssize_t key_len) {
   return hash;
 }
 
-static char oneatatime_doc[] = "Bob Jenkins's One-at-a-time non-cryptographic hash function. Takes a unicode and returns an unsigned 32-bit integer.";
+static char oneatatime_doc[] = "Bob Jenkins's One-at-a-time non-cryptographic hash function. Takes a (read-only) buffer. Returns an unsigned 32-bit integer hash of the buffer.";
 
 static PyObject* oneatatime_py(PyObject* self, PyObject* args) {
-  const char *key = NULL;
+  const char *key;
   Py_ssize_t key_len;
   uint32_t hash;
 
-  // Extract the python unicode argument
-  if (!PyArg_ParseTuple(args, "es#", "UTF-8", &key, &key_len))
+  if (!PyArg_ParseTuple(args, "t#", &key, &key_len))
     return NULL;
 
   hash = one_at_a_time(key, key_len);
 
-  PyMem_Free((void *) key);
   return Py_BuildValue("I", hash);
 }
 
@@ -310,7 +308,7 @@ static PyMethodDef jenkins_funcs[] = {
   {NULL, NULL, 0, NULL}
 };
 
-static const char jenkins_doc[] = "Bob Jenkins's hash functions published at http://www.burtleburtle.net/bob/hash/doobs.html.";
+static const char jenkins_doc[] = "Bob Jenkins's hash functions published at http://www.burtleburtle.net/bob/hash/doobs.html. None of these hash functions are suitable for cryptographic use.";
 
 #if PY_MAJOR_VERSION >= 3
 static struct PyModuleDef jenkins = {
